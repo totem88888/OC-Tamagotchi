@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>나의 커스텀 다마고치</title>
+    <style>
+        body { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; background: #fdf6e3; font-family: 'Apple SD Gothic Neo', sans-serif; margin: 0; }
+        #game-container { width: 350px; height: 450px; background: #fff; border: 4px solid #555; border-radius: 30px; position: relative; overflow: hidden; box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        
+        /* 상태바 디자인 */
+        #stats { padding: 15px; background: #555; color: white; font-size: 13px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+        .stat-item { display: flex; justify-content: space-between; }
+
+        /* 캐릭터 및 말풍선 */
+        #character { width: 100px; height: 100px; position: absolute; bottom: 80px; left: 50%; transition: left 1.5s ease-in-out; cursor: pointer; text-align: center; }
+        #character img { width: 100%; height: auto; }
+        
+        #bubble { 
+            position: absolute; background: white; border: 2px solid #555; padding: 8px 12px; 
+            border-radius: 15px; display: none; bottom: 190px; left: 50%; 
+            transform: translateX(-50%); white-space: nowrap; font-size: 14px; z-index: 10;
+        }
+
+        /* 하단 메뉴 */
+        .menu { position: absolute; bottom: 0; width: 100%; display: grid; grid-template-columns: repeat(4, 1fr); background: #eee; }
+        .menu button { padding: 15px 0; border: none; border-top: 1px solid #ccc; border-right: 1px solid #ccc; cursor: pointer; background: white; font-weight: bold; }
+        .menu button:last-child { border-right: none; }
+        .menu button:hover { background: #f0f0f0; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="stats">
+        <div class="stat-item">🍖 배고픔: <span id="hunger">100</span></div>
+        <div class="stat-item">😊 기분: <span id="mood">100</span></div>
+        <div class="stat-item">💰 돈: <span id="money">0</span></div>
+        <div class="stat-item">🧼 청결: <span id="clean">100</span></div>
+    </div>
+    
+    <div id="bubble"></div>
+    <div id="character" onclick="talk()">
+        <img src="https://via.placeholder.com/100?text=Pet" id="char-img">
+        <div id="status-label" style="font-size: 12px; color: #777; margin-top: 5px;">평온함</div>
+    </div>
+
+    <div class="menu">
+        <button onclick="feed()">밥주기</button>
+        <button onclick="play()">놀기</button>
+        <button onclick="wash()">씻기기</button>
+        <button onclick="openShop()">상점</button>
+    </div>
+</div>
+
+<script>
+    // --- 설정 영역: 대사를 직접 수정해보세요! ---
+    const userMessages = ["오늘 날씨 좋다!", "나랑 더 놀자!", "주인님 반가워요!", "후후훗", "방가방가"];
+    const hungryMessages = ["배고파서 기운이 없어...", "꼬르륵.. 밥 주세요..", "먹을 거 없나?"];
+    const sadMessages = ["너무 심심해...", "나랑 안 놀아줄 거야?", "우울해... (훌쩍)"];
+    // ---------------------------------------
+
+    let hunger = 100;
+    let mood = 100;
+    let clean = 100;
+    let money = 0;
+
+    const char = document.getElementById('character');
+    const bubble = document.getElementById('bubble');
+    const statusLabel = document.getElementById('status-label');
+
+    // 1. 캐릭터 랜덤 이동
+    function move() {
+        const x = Math.random() * (350 - 100);
+        char.style.left = x + 'px';
+    }
+    setInterval(move, 4000);
+
+    // 2. 수치 자동 감소 (가만히 두면 발생)
+    setInterval(() => {
+        hunger = Math.max(0, hunger - 2);
+        mood = Math.max(0, mood - 3);
+        updateStats();
+        updateStatusLabel();
+    }, 5000); // 5초마다 감소
+
+    // 3. 상태 라벨 업데이트
+    function updateStatusLabel() {
+        if (hunger < 30) statusLabel.innerText = "배고픔..";
+        else if (mood < 30) statusLabel.innerText = "우울함";
+        else statusLabel.innerText = "평온함";
+    }
+
+    // 4. 대사 출력 로직 (상태에 따라 우선순위 결정)
+    function talk() {
+        let pool = userMessages; // 기본 대사
+
+        if (hunger < 30) {
+            pool = hungryMessages;
+        } else if (mood < 30) {
+            pool = sadMessages;
+        }
+
+        const randomMsg = pool[Math.floor(Math.random() * pool.length)];
+        bubble.innerText = randomMsg;
+        bubble.style.display = 'block';
+        bubble.style.left = (parseInt(char.style.left) + 50) + 'px';
+        
+        setTimeout(() => { bubble.style.display = 'none'; }, 2500);
+    }
+
+    // 5. 활동 함수들
+    function updateStats() {
+        document.getElementById('hunger').innerText = hunger;
+        document.getElementById('mood').innerText = mood;
+        document.getElementById('clean').innerText = clean;
+        document.getElementById('money').innerText = money;
+    }
+
+    function feed() {
+        if (hunger >= 100) return alert("이미 배가 불러요!");
+        hunger = Math.min(100, hunger + 20);
+        money += 5;
+        alert("맛있게 먹었습니다!");
+        updateStats();
+    }
+
+    function play() {
+        hunger = Math.max(0, hunger - 10); // 놀면 배고파짐
+        mood = Math.min(100, mood + 30);   // 놀면 기분 좋아짐
+        money += 15;
+        alert("공놀이는 즐거워!");
+        updateStats();
+    }
+
+    function wash() {
+        clean = 100;
+        alert("깨끗해졌어요!");
+        updateStats();
+    }
+
+    function openShop() {
+        alert("상점은 준비 중입니다! 현재 잔액: " + money + "원");
+    }
+
+    updateStats();
+</script>
+</body>
+</html>

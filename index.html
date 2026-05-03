@@ -2,147 +2,578 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>나의 커스텀 다마고치</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>자캐 다마고치</title>
     <style>
-        body { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; background: #fdf6e3; font-family: 'Apple SD Gothic Neo', sans-serif; margin: 0; }
-        #game-container { width: 350px; height: 450px; background: #fff; border: 4px solid #555; border-radius: 30px; position: relative; overflow: hidden; box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        :root { 
+            --dark: #333; 
+            --accent: #ff6b6b; 
+            --gold: #fdac60; 
+            --bg: #f4f4f9; 
+            --active-blue: #4dabf7;
+            --ui-font: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+        }
         
-        /* 상태바 디자인 */
-        #stats { padding: 15px; background: #555; color: white; font-size: 13px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
-        .stat-item { display: flex; justify-content: space-between; }
+        body { 
+            display: flex; justify-content: center; align-items: center; 
+            height: 100vh; background: var(--bg); margin: 0; 
+            font-family: var(--ui-font); overflow: hidden; 
+        }
+        
+        #game-container { 
+            width: 360px; height: 550px; background: white; 
+            border: 4px solid var(--dark); border-radius: 30px; 
+            position: relative; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); 
+        }
+        
+        /* Header & Stats */
+        #pet-header { 
+            background: var(--dark); color: white; 
+            display: flex; justify-content: space-between; align-items: center; 
+            padding: 12px 15px; z-index: 100; position: relative;
+        }
+        #pet-name-display { color: var(--gold); font-weight: 700; font-size: 16px; cursor: pointer; }
+        .edit-btn { cursor: pointer; font-size: 18px; transition: transform 0.2s; }
+        .edit-btn:hover { transform: rotate(15deg); }
 
-        /* 캐릭터 및 말풍선 */
-        #character { width: 100px; height: 100px; position: absolute; bottom: 80px; left: 50%; transition: left 1.5s ease-in-out; cursor: pointer; text-align: center; }
-        #character img { width: 100%; height: auto; }
+        #exp-bar-container { width: 100%; height: 6px; background: #444; position: relative; z-index: 100; }
+        #exp-bar { height: 100%; width: 0%; background: var(--gold); transition: width 0.3s; }
+
+        #stats { 
+            padding: 10px; background: #2a2a2a; color: white; 
+            display: grid; grid-template-columns: 1fr 1fr; 
+            font-size: 12px; gap: 5px; position: relative; z-index: 90; 
+        }
         
-        #bubble { 
-            position: absolute; background: white; border: 2px solid #555; padding: 8px 12px; 
-            border-radius: 15px; display: none; bottom: 190px; left: 50%; 
-            transform: translateX(-50%); white-space: nowrap; font-size: 14px; z-index: 10;
+        /* Main Visuals */
+        #score-board { 
+            position: absolute; top: 130px; width: 100%; 
+            text-align: center; font-weight: 900; color: var(--accent); 
+            display: none; font-size: 18px; z-index: 20; 
+            text-shadow: 1px 1px 0 #fff; pointer-events: none;
         }
 
-        /* 하단 메뉴 */
-        .menu { position: absolute; bottom: 0; width: 100%; display: grid; grid-template-columns: repeat(4, 1fr); background: #eee; }
-        .menu button { padding: 15px 0; border: none; border-top: 1px solid #ccc; border-right: 1px solid #ccc; cursor: pointer; background: white; font-weight: bold; }
-        .menu button:last-child { border-right: none; }
-        .menu button:hover { background: #f0f0f0; }
+        #character-container {
+            width: 140px; height: 140px; position: absolute;
+            bottom: 90px; left: 110px; z-index: 5;
+            cursor: pointer; display: flex; justify-content: center; align-items: center;
+            transition: transform 0.1s ease-out;
+        }
+        #character-img {
+            width: 100%; height: 100%; object-fit: contain; pointer-events: none;
+        }
+        
+        #ball { 
+            position: absolute; font-size: 50px; cursor: pointer; 
+            display: none; z-index: 50; width: 60px; height: 60px; 
+            line-height: 60px; text-align: center; user-select: none;
+            filter: drop-shadow(0 6px 8px rgba(0,0,0,0.2));
+            transition: transform 0.1s;
+        }
+        #ball:active { transform: scale(1.2); }
+
+        .bouncing { animation: idleFloat 1.5s infinite alternate ease-in-out; }
+        @keyframes idleFloat { 0% { transform: translateY(0); } 100% { transform: translateY(-30px); } }
+
+        #bubble { 
+            position: absolute; background: white; border: 2px solid var(--dark); 
+            padding: 8px 14px; border-radius: 15px; bottom: 230px; 
+            left: 50%; transform: translateX(-50%); display: none; 
+            z-index: 60; font-size: 13px; font-weight: 600; white-space: normal; text-align: center; max-width: 200px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        #bubble::after {
+            content: ''; position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%);
+            border-left: 10px solid transparent; border-right: 10px solid transparent; border-top: 10px solid var(--dark);
+        }
+        
+        /* Overlays */
+        .overlay { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(255,255,255,0.98); display: none; flex-direction: column; 
+            padding: 25px 20px; box-sizing: border-box; z-index: 200; overflow-y: auto;
+        }
+        .item-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .card { 
+            border: 1px solid #ddd; padding: 12px 5px; text-align: center; 
+            border-radius: 15px; cursor: pointer; background: white; font-size: 14px;
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+            transition: all 0.2s;
+        }
+        .card:hover { border-color: var(--active-blue); background: #f0f7ff; }
+        .card span.emoji { font-size: 24px; }
+        .card span.price { font-size: 11px; font-weight: 700; color: #777; }
+        
+        .active-mode { background: var(--active-blue) !important; color: white !important; }
+
+        /* Menu */
+        .menu { position: absolute; bottom: 0; width: 100%; display: grid; grid-template-columns: repeat(4, 1fr); height: 75px; z-index: 150; }
+        .menu button { 
+            border: none; border-top: 1px solid #eee; background: #fff; 
+            font-weight: 700; cursor: pointer; color: #555; font-size: 13px; transition: 0.2s;
+        }
+
+        /* Custom UI Elements */
+        .money-up { position: absolute; color: #2ecc71; font-weight: 800; font-size: 20px; animation: floatUp 1s forwards; pointer-events: none; z-index: 110; }
+        @keyframes floatUp { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-60px); } }
+
+        #wash-tools { position: absolute; top: 200px; width: 100%; display: none; justify-content: center; gap: 30px; z-index: 160; }
+        .wash-icon { font-size: 30px; background: white; border: 2px solid #eee; border-radius: 15px; width: 60px; height: 60px; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+        
+        #suds-overlay { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(255,255,255,0.7); border-radius: 50%; opacity: 0; pointer-events: none; 
+            display: flex; justify-content: center; align-items: center; font-size: 40px; z-index: 10;
+        }
+
+        /* Settings CSS */
+        .settings-label { font-size: 13px; font-weight: 700; margin: 15px 0 5px; color: #666; }
+        .settings-hint { font-size: 11px; color: #999; margin-bottom: 5px; }
+        .settings-input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; margin-bottom: 10px; font-family: inherit; }
+        
+        #custom-alert { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-box { background: white; padding: 25px; border-radius: 20px; width: 280px; text-align: center; }
+        .modal-btn { background: var(--dark); color: white; border: none; padding: 10px 20px; border-radius: 10px; cursor: pointer; font-weight: 700; margin-top: 10px;}
+        
+        .share-row { display: flex; gap: 5px; margin-top: 10px; }
+        .share-btn { flex: 1; padding: 10px; border-radius: 10px; border: 1px solid #ddd; background: #f8f8f8; cursor: pointer; font-size: 12px; font-weight: 600; }
     </style>
 </head>
 <body>
 
 <div id="game-container">
+    <!-- Header -->
+    <div id="pet-header">
+        <div id="pet-name-display">배시우</div>
+        <div style="font-size: 12px; color: #aaa;">Lv.<span id="lv-val" style="color: var(--gold);">1</span></div>
+        <div class="edit-btn" onclick="openSettings()">✏️</div>
+    </div>
+    <div id="exp-bar-container"><div id="exp-bar"></div></div>
+    
     <div id="stats">
-        <div class="stat-item">🍖 배고픔: <span id="hunger">100</span></div>
-        <div class="stat-item">😊 기분: <span id="mood">100</span></div>
-        <div class="stat-item">💰 돈: <span id="money">0</span></div>
-        <div class="stat-item">🧼 청결: <span id="clean">100</span></div>
+        <div>🍖 포만감: <span id="h-val">100</span></div>
+        <div>😊 기분: <span id="m-val">100</span></div>
+        <div>💰 보유금: <span id="cash">100</span></div>
+        <div>🧼 위생: <span id="c-val">100</span></div>
     </div>
     
+    <!-- Game UI -->
+    <div id="score-board">공을 터치해 높이 튕기세요!<br><span id="count" style="font-size: 30px;">0</span></div>
     <div id="bubble"></div>
-    <div id="character" onclick="talk()">
-        <img src="https://via.placeholder.com/100?text=Pet" id="char-img">
-        <div id="status-label" style="font-size: 12px; color: #777; margin-top: 5px;">평온함</div>
+    
+    <div id="character-container" onclick="handleCharClick()">
+        <div id="suds-overlay">🫧</div>
+        <img id="character-img" src="./Assets/OC/1.png" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0NSIgZmlsbD0iI0ZGRDkzRCIgc3Ryb2tlPSIjMzMzIiBzdHJva2Utd2lkdGg9IjMiLz48Y2lyY2xlIGN4PSIzNSIgY3k9IjQwIiByPSI1IiBmaWxsPSIjMzMzIi8+PGNpcmNsZSBjeD0iNjUiIGN5PSI0MCIgcj0iNSIgZmlsbD0iIzMzMyIvPjxwYXRoIGQ9Ik0gNDAgNjUgUSA1MCA3NSA2MCA2NSIgc3Ryb2tlPSIjMzMzIiBzdHJva2Utd2lkdGg9IjMiIGZpbGw9Im5vbmUiIC8+PC9zdmc+'">
+    </div>
+    
+    <div id="ball" onclick="userKickBall()">⚽</div>
+    
+    <!-- Tools -->
+    <div id="active-food" style="position:absolute; display:none; font-size:40px; z-index:210; pointer-events:none;"></div>
+    <div id="active-soap" style="position:absolute; display:none; font-size:40px; z-index:210; pointer-events:none;">🧼</div>
+    <div id="active-shower" style="position:absolute; display:none; font-size:40px; z-index:210; pointer-events:none;">🚿</div>
+
+    <div id="wash-tools">
+        <div class="wash-icon" onclick="startWashDrag('soap')">🧼</div>
+        <div class="wash-icon" onclick="startWashDrag('shower')">🚿</div>
     </div>
 
+    <!-- Guide Overlay -->
+    <div id="guide-overlay" class="overlay" style="display:flex;">
+        <h2 style="text-align: center; color: var(--accent);">🎮 다마고치 완벽 가이드</h2>
+        <div style="font-size: 13px; line-height: 1.6; color: #444;">
+            <p><b>🍖 밥주기:</b> 가방에서 음식을 선택해 캐릭터 입으로 드래그하세요.</p>
+            <p><b>⚽ 놀기:</b> 공을 터치해서 튕기세요. 캐릭터가 근처에서 도와줄 거예요! 많은 점수를 획득할 수록 난이도가 어려워집니다.</p>
+            <p><b>🧼 씻기:</b> 비누로 거품을 낸 뒤, 샤워기로 거품을 씻어내 주세요.</p>
+            <p><b>🏪 상점:</b> 다양한 아이템을 구매해 스탯을 관리하세요.</p>
+        </div>
+        <button onclick="closeGuide()" style="margin-top:auto; padding: 15px; font-size: 16px; font-weight: 800; background: var(--dark); color: white; border: none; border-radius: 15px; cursor: pointer;">이해했어요!</button>
+    </div>
+
+    <!-- Settings Overlay -->
+    <div id="settings-overlay" class="overlay">
+        <h3>⚙️ 캐릭터 및 대사 설정</h3>
+        <div class="settings-label">이름 변경</div>
+        <input type="text" id="set-name" class="settings-input" placeholder="이름을 입력하세요">
+        <div class="settings-label">캐릭터 이미지</div>
+        <input type="file" id="image-input" accept="image/*" style="font-size: 12px; margin-bottom: 10px;">
+        <div class="settings-label">대사 설정 (쉼표로 구분)</div>
+        <input type="text" id="set-msg-hungry" class="settings-input" placeholder="배고플 때">
+        <input type="text" id="set-msg-normal" class="settings-input" placeholder="평상시">
+        <div class="share-row">
+            <button class="share-btn" onclick="exportData()">📤 데이터 저장</button>
+            <button class="share-btn" onclick="importDataTrigger()">📥 불러오기</button>
+        </div>
+        <input type="file" id="import-input" style="display:none;" accept=".json">
+        <button class="modal-btn" onclick="saveSettings()" style="width:100%; margin-top:20px; background: var(--active-blue);">적용 및 저장</button>
+        <button class="modal-btn" onclick="closeOverlay()" style="width:100%; background: #ccc;">닫기</button>
+    </div>
+
+    <!-- Inventory -->
+    <div id="inv-overlay" class="overlay">
+        <h3>🍱 가방</h3>
+        <div id="inv-list" class="item-grid"></div>
+        <button class="modal-btn" onclick="closeOverlay()" style="margin-top:auto; width:100%;">닫기</button>
+    </div>
+
+    <!-- Shop -->
+    <div id="shop-overlay" class="overlay">
+        <h3>🏪 상점</h3>
+        <div class="item-grid">
+            <div class="card" onclick="addToCart('🥛', 5, 'milk')"><span class="emoji">🥛</span>우유<span class="price">5원</span></div>
+            <div class="card" onclick="addToCart('🍎', 10, 'apple')"><span class="emoji">🍎</span>사과<span class="price">10원</span></div>
+            <div class="card" onclick="addToCart('🍦', 15, 'icecream')"><span class="emoji">🍦</span>콘<span class="price">15원</span></div>
+            <div class="card" onclick="addToCart('🍖', 30, 'meat')"><span class="emoji">🍖</span>고기<span class="price">30원</span></div>
+            <div class="card" onclick="addToCart('🍰', 45, 'cake')"><span class="emoji">🍰</span>케이크<span class="price">45원</span></div>
+            <div class="card" onclick="addToCart('Sushi', 60, 'sushi')"><span class="emoji">🍣</span>초밥<span class="price">60원</span></div>
+            <div class="card" onclick="addToCart('Pill', 100, 'pill')"><span class="emoji">💊</span>영양제<span class="price">100원</span></div>
+            <div class="card" onclick="addToCart('Candy', 200, 'candy')"><span class="emoji">💎</span>왕캔디<span class="price">200원</span></div>
+        </div>
+        <div style="margin-top: auto; padding: 15px; border-top: 1px solid #eee;">
+            <div id="cart-info" style="font-size: 13px; color: #666;">장바구니가 비었습니다.</div>
+            <button id="buy-btn" onclick="buyItems()" style="width:100%; margin-top:10px; padding: 12px; background: var(--dark); color: white; border: none; border-radius: 10px; display: none;">구매하기</button>
+        </div>
+        <button onclick="closeOverlay()" style="margin-top:10px; border:none; background:none; color:#aaa;">닫기</button>
+    </div>
+
+    <!-- Bottom Menu -->
     <div class="menu">
-        <button onclick="feed()">밥주기</button>
-        <button onclick="play()">놀기</button>
-        <button onclick="wash()">씻기기</button>
-        <button onclick="openShop()">상점</button>
+        <button id="menu-feed" onclick="handleMenu('feed')">밥주기</button>
+        <button id="menu-play" onclick="handleMenu('play')">놀기</button>
+        <button id="menu-wash" onclick="handleMenu('wash')">씻기기</button>
+        <button id="menu-shop" onclick="handleMenu('shop')">상점</button>
+    </div>
+
+    <div id="custom-alert">
+        <div class="modal-box">
+            <p id="alert-msg" style="font-weight:700;"></p>
+            <button class="modal-btn" onclick="closeAlert()">확인</button>
+        </div>
     </div>
 </div>
 
 <script>
-    // --- 설정 영역: 대사를 직접 수정해보세요! ---
-    const userMessages = ["오늘 날씨 좋다!", "나랑 더 놀자!", "주인님 반가워요!", "후후훗", "방가방가"];
-    const hungryMessages = ["배고파서 기운이 없어...", "꼬르륵.. 밥 주세요..", "먹을 거 없나?"];
-    const sadMessages = ["너무 심심해...", "나랑 안 놀아줄 거야?", "우울해... (훌쩍)"];
-    // ---------------------------------------
+    // State
+    let hunger = 100, mood = 100, clean = 100, money = 100, level = 1, exp = 0, maxExp = 100;
+    let inventory = ["🍎"];
+    let cart = [];
+    let petName = "아비투스";
+    
+    // Multi-Dialogue System
+    let customMsgs = { 
+        hungry: ["배고픈데...", "뭐 먹을 거 없어요?", "이러다 굶어 죽으면 어쩌나 몰라!"], 
+        normal: ["*콧노래*", "여긴 좀 좁네요~", "안전하고 괜찮은데?", "내가 바깥에서 뭘 했는지 말했었나?", "돈은 많죠?", "여긴 나 혼자인가요?", "형사님은요?"],
+        eat: ["먹을만 하네요!", "*냠냠*"],
+        wash: ["개운하다~", "더 좋은 건 없어요?"]
+    };
+    
+    // Smooth movement parameters
+    let charPosX = 110, targetX = 110, charSpeed = 0.08; 
+    let isPlayingBall = false, isWashing = false;
+    let ballX = 155, ballY = 180, ballVX = 0, ballVY = 0, ballCount = 0;
+    
+    // SUPER EASY BALL PHYSICS
+    let gravity = 0.08; // Very slow gravity
+    let ballLastHitter = 'none';
 
-    let hunger = 100;
-    let mood = 100;
-    let clean = 100;
-    let money = 0;
+    const charContainer = document.getElementById('character-container');
+    const charImg = document.getElementById('character-img');
+    const ball = document.getElementById('ball');
 
-    const char = document.getElementById('character');
-    const bubble = document.getElementById('bubble');
-    const statusLabel = document.getElementById('status-label');
-
-    // 1. 캐릭터 랜덤 이동
-    function move() {
-        const x = Math.random() * (350 - 100);
-        char.style.left = x + 'px';
+    function initInputs() {
+        document.getElementById('set-name').value = petName;
+        document.getElementById('set-msg-hungry').value = customMsgs.hungry.join(", ");
+        document.getElementById('set-msg-normal').value = customMsgs.normal.join(", ");
     }
-    setInterval(move, 4000);
+    initInputs();
 
-    // 2. 수치 자동 감소 (가만히 두면 발생)
-    setInterval(() => {
-        hunger = Math.max(0, hunger - 2);
-        mood = Math.max(0, mood - 3);
-        updateStats();
-        updateStatusLabel();
-    }, 5000); // 5초마다 감소
-
-    // 3. 상태 라벨 업데이트
-    function updateStatusLabel() {
-        if (hunger < 30) statusLabel.innerText = "배고픔..";
-        else if (mood < 30) statusLabel.innerText = "우울함";
-        else statusLabel.innerText = "평온함";
+    function openSettings() { 
+        closeAllModes();
+        document.getElementById('settings-overlay').style.display = 'flex'; 
     }
 
-    // 4. 대사 출력 로직 (상태에 따라 우선순위 결정)
-    function talk() {
-        let pool = userMessages; // 기본 대사
-
-        if (hunger < 30) {
-            pool = hungryMessages;
-        } else if (mood < 30) {
-            pool = sadMessages;
+    function saveSettings() {
+        const name = document.getElementById('set-name').value.trim();
+        if(name) { petName = name; document.getElementById('pet-name-display').innerText = `✨ ${name} ✨`; }
+        customMsgs.hungry = document.getElementById('set-msg-hungry').value.split(",").map(s => s.trim()).filter(s => s);
+        customMsgs.normal = document.getElementById('set-msg-normal').value.split(",").map(s => s.trim()).filter(s => s);
+        const file = document.getElementById('image-input').files[0];
+        if(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => charImg.src = e.target.result;
+            reader.readAsDataURL(file);
         }
+        closeOverlay();
+    }
 
-        const randomMsg = pool[Math.floor(Math.random() * pool.length)];
-        bubble.innerText = randomMsg;
-        bubble.style.display = 'block';
-        bubble.style.left = (parseInt(char.style.left) + 50) + 'px';
+    function getRandomMsg(key) {
+        const list = customMsgs[key];
+        return list[Math.floor(Math.random() * list.length)];
+    }
+
+    function handleCharClick() {
+        if(isPlayingBall || isWashing) return;
+        showBubble(hunger < 40 ? getRandomMsg('hungry') : getRandomMsg('normal'));
+    }
+
+    setInterval(() => {
+        if (!isPlayingBall && !isWashing && Math.random() > 0.7) {
+            showBubble(hunger < 40 ? getRandomMsg('hungry') : getRandomMsg('normal'));
+        }
+    }, 15000);
+
+    function animate() {
+        // AI character logic for ball
+        if (isPlayingBall) {
+            // Predict and follow ball more aggressively (widened helper area)
+            if (ballVY > 0) {
+                targetX = ballX - 40; 
+            } else {
+                targetX = 110;
+            }
+        }
         
-        setTimeout(() => { bubble.style.display = 'none'; }, 2500);
+        charPosX += (targetX - charPosX) * charSpeed;
+        if(charContainer) charContainer.style.left = Math.max(-20, Math.min(240, charPosX)) + "px";
+
+        // Ball Physics (Easy Mode)
+        if (isPlayingBall && (ballVY !== 0 || ballY > 180)) {
+            ballVY += gravity;
+            ballX += ballVX;
+            ballY += ballVY;
+
+            if (ballY < 50) { ballY = 50; ballVY *= -0.2; }
+            if (ballX <= 0) { ballX = 0; ballVX = Math.abs(ballVX) * 0.8; }
+            if (ballX >= 300) { ballX = 300; ballVX = -Math.abs(ballVX) * 0.8; }
+
+            // Wider collision range for pet (Helping user)
+            if (ballVY > 0 && ballY >= 320 && ballY <= 400 && ballLastHitter === 'user') {
+                const charCenter = charPosX + 70;
+                const ballCenter = ballX + 30;
+                if (Math.abs(charCenter - ballCenter) < 100) { // Increased hit box
+                    petBounceBall();
+                }
+            }
+
+            if (ballY > 490) {
+                if(ballCount > 0) {
+                    ballCount = 0;
+                    document.getElementById('count').innerText = "0";
+                }
+                resetBall();
+            }
+
+            if(ball) {
+                ball.style.left = ballX + "px";
+                ball.style.top = ballY + "px";
+                ball.style.transform = `rotate(${ballX * 1.5}deg)`;
+            }
+        }
+        requestAnimationFrame(animate);
+    }
+    animate();
+
+    setInterval(() => { 
+        if (!isPlayingBall && !isWashing && Math.random() > 0.6) {
+            targetX = Math.random() * 200; 
+        }
+    }, 5000);
+
+    function toggleBallGame() {
+        if (isPlayingBall) {
+            endBallGame(true);
+        } else {
+            closeOverlay();
+            if(clean < 20) { customAlert("지저분해서 놀기 싫대요! 🧼"); return; }
+            isPlayingBall = true;
+            ballCount = 0;
+            document.getElementById('menu-play').classList.add('active-mode');
+            document.getElementById('score-board').style.display = "block";
+            document.getElementById('count').innerText = "0";
+            ball.style.display = "block";
+            resetBall();
+        }
     }
 
-    // 5. 활동 함수들
-    function updateStats() {
-        document.getElementById('hunger').innerText = hunger;
-        document.getElementById('mood').innerText = mood;
-        document.getElementById('clean').innerText = clean;
-        document.getElementById('money').innerText = money;
+    function resetBall() {
+        ballX = 150; ballY = 150; ballVX = 0; ballVY = 0; ballLastHitter = 'none';
+        if(ball) {
+            ball.classList.add("bouncing");
+            ball.style.left = ballX + "px"; ball.style.top = ballY + "px";
+        }
     }
 
-    function feed() {
-        if (hunger >= 100) return alert("이미 배가 불러요!");
-        hunger = Math.min(100, hunger + 20);
-        money += 5;
-        alert("맛있게 먹었습니다!");
-        updateStats();
+    function userKickBall() {
+        if (!isPlayingBall) return;
+        if(ball) ball.classList.remove("bouncing");
+        // Stronger kick up, slower side movement
+        ballVY = -5.0; 
+        ballVX = (charPosX + 70 - (ballX + 30)) * 0.04; 
+        ballLastHitter = 'user';
     }
 
-    function play() {
-        hunger = Math.max(0, hunger - 10); // 놀면 배고파짐
-        mood = Math.min(100, mood + 30);   // 놀면 기분 좋아짐
-        money += 15;
-        alert("공놀이는 즐거워!");
-        updateStats();
+    function petBounceBall() {
+        ballCount++;
+        document.getElementById('count').innerText = ballCount;
+        ballLastHitter = 'pet';
+        ballVY = -5.5; 
+        ballVX = (Math.random() - 0.5) * 4; 
+        mood = Math.min(100, mood + 3);
+        showMoneyEff(2, ballX + 30, ballY);
+        addExp(12);
+        updateUI();
     }
 
-    function wash() {
-        clean = 100;
-        alert("깨끗해졌어요!");
-        updateStats();
+    function endBallGame(showAlert = true) {
+        isPlayingBall = false;
+        if(ball) ball.style.display = "none";
+        document.getElementById('score-board').style.display = "none";
+        document.getElementById('menu-play').classList.remove('active-mode');
+        if(showAlert) customAlert(`놀이 끝! 기록: ${ballCount}회`);
     }
 
-    function openShop() {
-        alert("상점은 준비 중입니다! 현재 잔액: " + money + "원");
+    function openInv() {
+        closeOverlay();
+        const list = document.getElementById('inv-list'); 
+        list.innerHTML = "";
+        inventory.forEach((item, idx) => {
+            const d = document.createElement('div'); d.className = "card"; d.innerHTML = `<span class="emoji">${item}</span>`;
+            d.onclick = () => startFeeding(item, idx); list.appendChild(d);
+        });
+        document.getElementById('inv-overlay').style.display = "flex";
     }
 
-    updateStats();
+    function startFeeding(emoji, idx) {
+        closeOverlay();
+        const tool = document.getElementById('active-food');
+        tool.innerText = emoji; tool.style.display = "block";
+        const onMove = (e) => {
+            const rect = document.getElementById('game-container').getBoundingClientRect();
+            tool.style.left = (e.pageX - rect.left - 20) + 'px';
+            tool.style.top = (e.pageY - rect.top - 20) + 'px';
+            const tr = tool.getBoundingClientRect(), cr = charContainer.getBoundingClientRect();
+            if(tr.left < cr.right && tr.right > cr.left && tr.top < cr.bottom && tr.bottom > cr.top) {
+                document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp);
+                tool.style.display = "none"; inventory.splice(idx, 1);
+                
+                // Stat effects based on item
+                if(emoji === '🍣') { hunger = Math.min(100, hunger + 50); addExp(40); }
+                else if(emoji === '🍦') { mood = Math.min(100, mood + 40); hunger = Math.min(100, hunger + 10); }
+                else if(emoji === '💊') { hunger = 100; mood = 100; clean = 100; addExp(50); }
+                else if(emoji === '💎') { addExp(300); mood = 100; }
+                else { hunger = Math.min(100, hunger + 25); addExp(15); }
+                
+                showMoneyEff(5); showBubble(getRandomMsg('eat')); updateUI();
+            }
+        };
+        const onUp = () => { tool.style.display = "none"; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+        document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+    }
+
+    // Wash logic
+    let sudsLevel = 0, isSoaped = false;
+    function openWash() { closeOverlay(); isWashing = true; document.getElementById('menu-wash').classList.add('active-mode'); document.getElementById('wash-tools').style.display = "flex"; }
+    function stopWash() { isWashing = false; document.getElementById('menu-wash').classList.remove('active-mode'); document.getElementById('wash-tools').style.display = "none"; document.getElementById('suds-overlay').style.opacity = 0; sudsLevel = 0; isSoaped = false; }
+    function startWashDrag(type) {
+        const tool = document.getElementById(type === 'soap' ? 'active-soap' : 'active-shower');
+        tool.style.display = "block"; document.getElementById('wash-tools').style.display = "none";
+        const onMove = (e) => {
+            const rect = document.getElementById('game-container').getBoundingClientRect();
+            tool.style.left = (e.pageX - rect.left - 20) + 'px'; tool.style.top = (e.pageY - rect.top - 20) + 'px';
+            const tr = tool.getBoundingClientRect(), cr = charContainer.getBoundingClientRect();
+            const suds = document.getElementById('suds-overlay');
+            if(tr.left < cr.right && tr.right > cr.left && tr.top < cr.bottom && tr.bottom > cr.top) {
+                if(type === 'soap') { sudsLevel = Math.min(100, sudsLevel + 3); suds.style.opacity = sudsLevel / 100; if(sudsLevel >= 100) isSoaped = true; }
+                else if(type === 'shower' && isSoaped) { sudsLevel = Math.max(0, sudsLevel - 6); suds.style.opacity = sudsLevel / 100; if(sudsLevel <= 0) { clean = 100; showMoneyEff(15); addExp(25); showBubble(getRandomMsg('wash')); stopWash(); updateUI(); } }
+            }
+        };
+        const onUp = () => { tool.style.display = "none"; if(isWashing) document.getElementById('wash-tools').style.display = "flex"; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+        document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+    }
+
+    // Shop logic
+    function openShop() { closeOverlay(); document.getElementById('shop-overlay').style.display = "flex"; }
+    function addToCart(emoji, price, code) { 
+        // Handle special names for display
+        let displayEmoji = emoji;
+        if(code === 'sushi') displayEmoji = '🍣';
+        if(code === 'pill') displayEmoji = '💊';
+        if(code === 'candy') displayEmoji = '💎';
+        cart.push({item: displayEmoji, price}); 
+        updateCart(); 
+    }
+    function updateCart() {
+        const total = cart.reduce((s, i) => s + i.price, 0);
+        document.getElementById('cart-info').innerText = cart.length > 0 ? `${cart.length}개 - ${total}원` : "장바구니가 비었습니다.";
+        document.getElementById('buy-btn').style.display = cart.length > 0 ? "block" : "none";
+    }
+    function buyItems() {
+        const total = cart.reduce((s, i) => s + i.price, 0);
+        if(money >= total) {
+            money -= total; cart.forEach(i => inventory.push(i.item)); cart = []; updateCart(); updateUI();
+            customAlert("구매 완료! 가방을 확인하세요.");
+        } else customAlert("돈이 모자라요!");
+    }
+
+    // UI & Misc
+    function showBubble(text) {
+        const b = document.getElementById('bubble'); b.innerText = text; b.style.display = 'block';
+        clearTimeout(window.bubbleTimer); window.bubbleTimer = setTimeout(() => b.style.display = 'none', 3000);
+    }
+    function updateUI() {
+        document.getElementById('h-val').innerText = Math.floor(hunger);
+        document.getElementById('m-val').innerText = Math.floor(mood);
+        document.getElementById('c-val').innerText = Math.floor(clean);
+        document.getElementById('cash').innerText = money;
+        document.getElementById('lv-val').innerText = level;
+        document.getElementById('exp-bar').style.width = (exp / maxExp * 100) + "%";
+    }
+    function addExp(amount) {
+        exp += amount;
+        if(exp >= maxExp) { level++; exp -= maxExp; maxExp = Math.floor(maxExp * 1.4); customAlert(`LEVEL UP! 레벨 ${level}!`); }
+        updateUI();
+    }
+    function showMoneyEff(amount, x, y) {
+        const eff = document.createElement('div'); eff.className = 'money-up'; eff.innerText = `+${amount}`;
+        eff.style.left = (x || 160) + "px"; eff.style.top = (y || 320) + "px";
+        document.getElementById('game-container').appendChild(eff);
+        setTimeout(() => eff.remove(), 1000); money += amount; updateUI();
+    }
+    function handleMenu(mode) {
+        if (isPlayingBall && mode !== 'play') endBallGame(false);
+        if (isWashing && mode !== 'wash') stopWash();
+        if (mode === 'feed') openInv();
+        else if (mode === 'play') toggleBallGame();
+        else if (mode === 'wash') openWash();
+        else if (mode === 'shop') openShop();
+    }
+    function closeAllModes() { endBallGame(false); stopWash(); closeOverlay(); }
+    function customAlert(msg) { document.getElementById('alert-msg').innerText = msg; document.getElementById('custom-alert').style.display = 'flex'; }
+    function closeAlert() { document.getElementById('custom-alert').style.display = 'none'; }
+    function closeOverlay() { document.querySelectorAll('.overlay').forEach(o => o.style.display = "none"); }
+    function closeGuide() { document.getElementById('guide-overlay').style.display = 'none'; }
+    
+    function exportData() {
+        const data = { petName, customMsgs, money, level, exp, maxExp };
+        const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+        const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${petName}_data.json`; a.click();
+    }
+    function importDataTrigger() { document.getElementById('import-input').click(); }
+    document.getElementById('import-input').onchange = (e) => {
+        const file = e.target.files[0]; if(!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            try {
+                const data = JSON.parse(ev.target.result);
+                petName = data.petName; customMsgs = data.customMsgs; money = data.money; level = data.level; exp = data.exp; maxExp = data.maxExp;
+                document.getElementById('pet-name-display').innerText = `✨ ${petName} ✨`; initInputs(); updateUI();
+                customAlert("불러오기 성공!");
+            } catch { customAlert("파일 오류!"); }
+        }; reader.readAsText(file);
+    };
+
+    window.onload = updateUI;
+    setInterval(() => { hunger = Math.max(0, hunger - 0.5); mood = Math.max(0, mood - 0.3); clean = Math.max(0, clean - 0.15); updateUI(); }, 5000);
 </script>
 </body>
 </html>
